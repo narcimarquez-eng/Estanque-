@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   capturas:
@@ -29,6 +29,19 @@ jobs:
           sleep 2
           curl -s -o /dev/null -w "servidor: %{http_code}\n" http://127.0.0.1:8080/index.html || echo "::error::El servidor local no responde"
           node tools/capturas.mjs
+
+      - name: Guardar capturas en la rama
+        if: always()
+        run: |
+          git config user.name "capturas-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -f capturas/
+          if git diff --cached --quiet; then
+            echo "Sin capturas nuevas"
+          else
+            git commit -m "Capturas de la ejecución ${{ github.run_number }} [skip ci]"
+            git push origin HEAD:${{ github.ref_name }}
+          fi
 
       - name: Subir capturas
         if: always()
