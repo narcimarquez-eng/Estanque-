@@ -21,6 +21,7 @@ const browser = await chromium.launch({
 async function abrir(nombre, opciones) {
   const ctx = await browser.newContext(opciones);
   const page = await ctx.newPage();
+  page.setDefaultTimeout(240000); // el renderizado por software es lento al principio
   page.on('console', (m) => {
     if (m.type() === 'error' || m.type() === 'warning') anotar(`[${nombre}] consola ${m.type()}: ${m.text()}`);
   });
@@ -79,7 +80,7 @@ try {
   await movil.close();
 
   // ---- Ordenador (1280 x 800) ----
-  const escritorio = await abrir('escritorio', { viewport: { width: 1280, height: 800 } });
+  const escritorio = await abrir('escritorio', { viewport: { width: 1024, height: 640 } });
   await captura(escritorio, 'escritorio-1-vista-inicial', 'vista inicial en ordenador');
 
   await escritorio.keyboard.down('Space');
