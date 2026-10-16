@@ -27,6 +27,7 @@ jobs:
         run: |
           python3 -m http.server 8080 --bind 127.0.0.1 > servidor.log 2>&1 &
           sleep 2
+          curl -s -o /dev/null -w "servidor: %{http_code}\n" http://127.0.0.1:8080/index.html || echo "::error::El servidor local no responde"
           node tools/capturas.mjs
 
       - name: Subir capturas

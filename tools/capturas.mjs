@@ -94,8 +94,12 @@ try {
   await escritorio.close();
 } catch (e) {
   anotar(`ERROR en las pruebas: ${e.message}`);
+  console.log(`::error::${String(e.message).split('\n')[0]}`);
   process.exitCode = 1;
 } finally {
   writeFileSync(`${OUT}/informe.txt`, informe.join('\n') + '\n');
+  for (const linea of informe.slice(0, 40)) {
+    console.log(`::notice::${linea.replace(/\s+/g, ' ').slice(0, 300)}`);
+  }
   await browser.close();
 }
