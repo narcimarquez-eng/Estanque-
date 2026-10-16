@@ -81,9 +81,7 @@ try {
   // Vista del pueblo, de día (quinta cámara)
   await movil.click('[data-time="2"]');
   await esperar(movil, 2000);
-  await movil.keyboard.press('KeyC');
-  await esperar(movil, 1500);
-  await movil.keyboard.press('KeyC');
+  await movil.keyboard.press('KeyC'); // de la tercera cámara a la del pueblo
   await esperar(movil, 4000);
   await captura(movil, 'movil-9-pueblo', 'vista del pueblo, la cascada y las fuentes');
 
