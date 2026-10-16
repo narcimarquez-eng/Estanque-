@@ -78,6 +78,15 @@ try {
   await botonSubir.dispatchEvent('pointerup');
   await captura(movil, 'movil-6-boton-subir', 'tras mantener el botón ↑ 2,5 s');
 
+  // Vista del pueblo, de día (quinta cámara)
+  await movil.click('[data-time="2"]');
+  await esperar(movil, 2000);
+  await movil.keyboard.press('KeyC');
+  await esperar(movil, 1500);
+  await movil.keyboard.press('KeyC');
+  await esperar(movil, 4000);
+  await captura(movil, 'movil-9-pueblo', 'vista del pueblo, la cascada y las fuentes');
+
   // Teclado (en la misma página): Espacio sube y la flecha arriba avanza
   await movil.evaluate(() => document.activeElement && document.activeElement.blur());
   await movil.keyboard.down('Space');
