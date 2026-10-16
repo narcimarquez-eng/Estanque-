@@ -77,22 +77,19 @@ try {
   await esperar(movil, 2500);
   await botonSubir.dispatchEvent('pointerup');
   await captura(movil, 'movil-6-boton-subir', 'tras mantener el botón ↑ 2,5 s');
+
+  // Teclado (en la misma página): Espacio sube y la flecha arriba avanza
+  await movil.evaluate(() => document.activeElement && document.activeElement.blur());
+  await movil.keyboard.down('Space');
+  await esperar(movil, 3000);
+  await movil.keyboard.up('Space');
+  await captura(movil, 'movil-7-espacio-subir', 'tras mantener Espacio 3 s (debe subir)');
+
+  await movil.keyboard.down('ArrowUp');
+  await esperar(movil, 3000);
+  await movil.keyboard.up('ArrowUp');
+  await captura(movil, 'movil-8-flecha-avanzar', 'tras mantener la flecha arriba 3 s');
   await movil.close();
-
-  // ---- Ordenador (1280 x 800) ----
-  const escritorio = await abrir('escritorio', { viewport: { width: 1024, height: 640 } });
-  await captura(escritorio, 'escritorio-1-vista-inicial', 'vista inicial en ordenador');
-
-  await escritorio.keyboard.down('Space');
-  await esperar(escritorio, 3000);
-  await escritorio.keyboard.up('Space');
-  await captura(escritorio, 'escritorio-2-espacio-subir', 'tras mantener Espacio 3 s (debe subir)');
-
-  await escritorio.keyboard.down('ArrowUp');
-  await esperar(escritorio, 3000);
-  await escritorio.keyboard.up('ArrowUp');
-  await captura(escritorio, 'escritorio-3-flecha-avanzar', 'tras mantener la flecha arriba 3 s');
-  await escritorio.close();
 } catch (e) {
   anotar(`ERROR en las pruebas: ${e.message}`);
   console.log(`::error::${String(e.message).split('\n')[0]}`);
