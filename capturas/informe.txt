@@ -1,13 +1,9 @@
 OK movil-1-vista-inicial: vista inicial, tarde
-FPS aproximados en este servidor (renderizado por software, no es un móvil real): 1.7
+FPS aproximados en este servidor (renderizado por software, no es un móvil real): 2.3
 OK movil-2-vista-2: segunda cámara
 OK movil-3-vista-3: tercera cámara
 OK movil-4-hora-dorada: hora dorada
 OK movil-5-hora-azul: hora azul
 OK movil-6-boton-subir: tras mantener el botón ↑ 2,5 s
-ERROR en las pruebas: page.screenshot: Timeout 240000ms exceeded.
-Call log:
-  - taking page screenshot
-  - waiting for fonts to load...
-  - fonts loaded
-
+OK movil-7-espacio-subir: tras mantener Espacio 3 s (debe subir)
+OK movil-8-flecha-avanzar: tras mantener la flecha arriba 3 s
