@@ -97,6 +97,41 @@ try {
   await movil.keyboard.up('ArrowUp');
   await captura(movil, 'movil-8-flecha-avanzar', 'tras mantener la flecha arriba 3 s');
   await movil.close();
+
+  // ---- Vistas de cerca: el agua del estanque y la de la aldea, una junto a otra ----
+  // Solo para estas pruebas: el gancho se inyecta al servir la página y coloca la cámara en un punto fijo.
+  const GANCHO = 'window.__dbg = { noSolids: true, setPose(p, l) { camPos.set(p[0], p[1], p[2]); const dx = l[0] - p[0], dy = l[1] - p[1], dz = l[2] - p[2]; yaw = Math.atan2(-dx, -dz); pitch = Math.atan2(dy, Math.hypot(dx, dz)); } };';
+  const cerca = await browser.newContext({
+    viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 1,
+  });
+  const pc = await cerca.newPage();
+  pc.setDefaultTimeout(240000);
+  pc.on('pageerror', (e) => anotar(`[cerca] ERROR de página: ${e.message}`));
+  await pc.route('**/index.html', async (route) => {
+    const r = await route.fetch();
+    let body = await r.text();
+    body = body
+      .replace('if (camPos.y < 5.5) {', 'if (camPos.y < 5.5 && !(window.__dbg && window.__dbg.noSolids)) {')
+      .replace('const rc = THREE.MathUtils.clamp(r, 5.2, 20);', 'const rc = (window.__dbg && window.__dbg.noSolids) ? r : THREE.MathUtils.clamp(r, 5.2, 20);')
+      .replace(/<\/script>\s*<\/body>/, GANCHO + '\n</script>\n</body>');
+    await route.fulfill({ response: r, body });
+  });
+  await pc.goto(PAGE_URL, { waitUntil: 'load', timeout: 120000 });
+  await esperar(pc, 15000);
+
+  const POSES = [
+    ['cerca-1-estanque', 'estanque de cerca, referencia', [0.8, 1.0, 7.5], [0, 0.0, 0]],
+    ['cerca-2-riachuelo', 'riachuelo de cerca', [-6.5, 1.3, -10], [-2.4, 0, -16]],
+    ['cerca-3-cascada', 'poza de la cascada y fuentes', [0, 2.0, -24], [0, 0.8, -33]],
+    ['cerca-4-fuente-oeste', 'fuente del oeste de cerca', [-9, 1.8, -16], [-9, 0.8, -21]],
+    ['cerca-5-fuente-este', 'fuente del este de cerca', [7, 1.8, -18], [7, 0.8, -24]],
+  ];
+  for (const [nombre, texto, p, l] of POSES) {
+    await pc.evaluate(([pp, ll]) => window.__dbg.setPose(pp, ll), [p, l]);
+    await esperar(pc, 6000);
+    await captura(pc, nombre, texto);
+  }
+  await cerca.close();
 } catch (e) {
   anotar(`ERROR en las pruebas: ${e.message}`);
   console.log(`::error::${String(e.message).split('\n')[0]}`);
