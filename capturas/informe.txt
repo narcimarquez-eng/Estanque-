@@ -22,5 +22,6 @@ OK movil-8-flecha-avanzar: tras mantener la flecha arriba 3 s
 OK cerca-1-estanque: estanque de cerca, referencia
 OK cerca-2-riachuelo: riachuelo de cerca, desde el norte de la valla
 OK cerca-3-cascada: poza de la cascada y fuentes
+OK cerca-6-base-cascada: base de la cascada, salpicaduras
 OK cerca-4-fuente-oeste: fuente del oeste de cerca
 OK cerca-5-fuente-este: fuente del este de cerca
