@@ -10,7 +10,7 @@
 [movil] consola warning: THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
 [movil] consola warning: THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
 OK movil-1-vista-inicial: vista inicial, tarde
-FPS aproximados en este servidor (renderizado por software, no es un móvil real): 1.0
+FPS aproximados en este servidor (renderizado por software, no es un móvil real): 1.3
 OK movil-2-vista-2: segunda cámara
 OK movil-3-vista-3: tercera cámara
 OK movil-4-hora-dorada: hora dorada
