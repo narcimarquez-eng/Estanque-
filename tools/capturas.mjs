@@ -124,6 +124,7 @@ try {
     ['cerca-2-riachuelo', 'riachuelo de cerca, desde el norte de la valla', [-2.0, 1.5, -20], [-2.6, 0, -15]],
     ['cerca-3-cascada', 'poza de la cascada y fuentes', [0, 2.0, -24], [0, 0.8, -33]],
     ['cerca-6-base-cascada', 'base de la cascada, salpicaduras', [-3.5, 1.4, -30.5], [0, 1.2, -35.5]],
+    ['cerca-7-cima-cascada', 'cima de la roca, el río antes de caer', [-2.5, 6.8, -28.5], [0, 4.9, -38]],
     ['cerca-4-fuente-oeste', 'fuente del oeste de cerca', [-9, 1.8, -16], [-9, 0.8, -21]],
     ['cerca-5-fuente-este', 'fuente del este de cerca', [7, 1.8, -18], [7, 0.8, -24]],
   ];

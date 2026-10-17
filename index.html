@@ -933,6 +933,16 @@ const surfParts = [];
 const mBedS = mBed.clone();
 mBedS.side = THREE.DoubleSide;
 const mPath = new THREE.MeshStandardMaterial({ map: texRock, roughness: 0.95, side: THREE.DoubleSide });
+// Piedras de río: cuatro tipos con colores y acabados distintos (canto rodado, musgo, caliza y granito)
+const texCanto   = canvasTex(noiseCanvas(256, 9, '#7a7060', '#b3a88f', 4, 11), true, 1);
+const texMusgo   = canvasTex(noiseCanvas(256, 7, '#4a5a2c', '#8a8a54', 5, 12), true, 1);
+const texCaliza  = canvasTex(noiseCanvas(256, 5, '#a9a496', '#e2dccb', 4, 13), true, 1);
+const texGranito = canvasTex(noiseCanvas(256, 10, '#5b4636', '#8c7561', 5, 14), true, 1);
+const mCanto   = new THREE.MeshStandardMaterial({ map: texCanto, roughness: 0.9, flatShading: true });
+const mMusgo   = new THREE.MeshStandardMaterial({ map: texMusgo, roughness: 0.9, flatShading: true });
+const mCaliza  = new THREE.MeshStandardMaterial({ map: texCaliza, roughness: 0.85, flatShading: true });
+const mGranito = new THREE.MeshStandardMaterial({ map: texGranito, roughness: 0.9, flatShading: true });
+const mBank = new THREE.MeshStandardMaterial({ map: texCanto, roughness: 0.95, side: THREE.DoubleSide });
 const mWin  = new THREE.MeshStandardMaterial({ color: 0xffe2b0, emissive: 0xffa54a, emissiveIntensity: 0.2, roughness: 0.9 });
 const mDoor = new THREE.MeshStandardMaterial({ color: 0x3b2a1d, roughness: 0.9 });
 
@@ -976,8 +986,8 @@ const STREAM = [[0, -31.5], [-1.2, -28], [-2.6, -25], [-3.6, -22], [-3.4, -18.5]
 const HW = 0.5; // medio ancho del agua
 scene.add(new THREE.Mesh(ribbon(STREAM, 1.3, 1.3, 0.008, 0.3), mBedS));
 surfParts.push(ribbon(STREAM, 2 * HW, 2 * HW, 0.05, 0.3).toNonIndexed());
-scene.add(new THREE.Mesh(ribbon(offsetLine(STREAM, HW + 0.14), 0.28, 0.28, 0.1, 0.5), mPath));
-scene.add(new THREE.Mesh(ribbon(offsetLine(STREAM, -(HW + 0.14)), 0.28, 0.28, 0.1, 0.5), mPath));
+scene.add(new THREE.Mesh(ribbon(offsetLine(STREAM, HW + 0.14), 0.28, 0.28, 0.1, 0.5), mBank));
+scene.add(new THREE.Mesh(ribbon(offsetLine(STREAM, -(HW + 0.14)), 0.28, 0.28, 0.1, 0.5), mBank));
 
 // Cascada: el agua sale del borde de la roca, cae en una lámina con hilos que bajan
 // y choca contra la base de piedra, donde salpica y hace espuma.
@@ -986,6 +996,8 @@ const rockParts = [
   [0, 2.0, -37.6, 2.2, 1.8, 2.2], [-6.5, 1.2, -36.5, 2.2, 1.2, 1.6], [6.5, 1.1, -36.5, 2.2, 1.1, 1.6],
 ].map(([x, y, z, sx, sy, sz]) => new THREE.SphereGeometry(1, 14, 10).toNonIndexed().scale(sx, sy, sz).translate(x, y, z));
 scene.add(new THREE.Mesh(mergeGeometries(rockParts), mRock));
+// Cima de la roca: un lecho de granito por el que llega el río antes de caer
+scene.add(new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.3, 5.6).translate(0, 4.95, -37.7), mGranito));
 
 const SHEET_Z = -35.25, LIP_Y = 4.7, BASE_Y = 0.5;
 const sheetMat = new THREE.ShaderMaterial({
@@ -1029,6 +1041,97 @@ const sheetMat = new THREE.ShaderMaterial({
 const sheet = new THREE.PlaneGeometry(3.2, LIP_Y - BASE_Y, 30, 40);
 sheet.translate(0, (LIP_Y + BASE_Y) / 2, SHEET_Z);
 scene.add(new THREE.Mesh(sheet, sheetMat));
+
+// Río sobre la cima: una película de agua que corre hacia el borde y cae por la lámina
+const filmMat = new THREE.ShaderMaterial({
+  uniforms: {
+    uTime: { value: 0 },
+    uBase: { value: new THREE.Color(0x1e4f57) },
+    uLight: { value: new THREE.Color(0xdff4f8) },
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }`,
+  fragmentShader: `
+    uniform float uTime;
+    uniform vec3 uBase;
+    uniform vec3 uLight;
+    varying vec2 vUv;
+    float hash(float n) { return fract(sin(n) * 43758.5453); }
+    void main() {
+      float col = floor(vUv.x * 14.0);
+      float n = hash(col + 3.0);
+      float ph = fract(-vUv.y * (1.0 + n * 0.6) + n * 5.0 + uTime * (0.8 + n) * 0.9); // corre hacia el borde
+      float hilo = smoothstep(0.7, 1.0, ph);
+      float borde = smoothstep(0.0, 0.1, vUv.x) * (1.0 - smoothstep(0.9, 1.0, vUv.x));
+      vec3 c = mix(uBase, uLight, hilo * 0.4);
+      gl_FragColor = vec4(c, borde * (0.6 + 0.25 * hilo));
+    }`,
+  transparent: true, depthWrite: false, side: THREE.DoubleSide,
+});
+scene.add(new THREE.Mesh(ribbon([[0, -40.4], [0, -37.5], [0, -35.2]], 2.6, 2.6, 5.13, 0.5), filmMat));
+
+// Piedras del lecho: de distintos tipos y tamaños, en el riachuelo, alrededor de la poza y sobre la cima
+const rockMats = [mCanto, mMusgo, mCaliza, mGranito];
+const rockList = rockMats.map(() => []);
+const addRock = (x, z, s, mat, baseY = 0) => {
+  const sq = rnd(0.5, 0.75);
+  rockList[mat].push({ x, y: baseY + s * sq * 0.25, z, s, sq, ry: rnd(0, Math.PI * 2) });
+};
+// Forma irregular y aplastada; cada tipo de piedra tiene su propia semilla
+function riverRockGeo(seed) {
+  const g = new THREE.IcosahedronGeometry(1, 2);
+  const p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+    const f = 1 + 0.16 * Math.sin(x * 3.1 + seed) * Math.cos(y * 2.7 + z * 1.3) + 0.08 * Math.sin(z * 5.3 + seed * 0.7);
+    p.setXYZ(i, x * f, y * f * 0.85, z * f);
+  }
+  return g;
+}
+const rockGeos = rockMats.map((_, m) => riverRockGeo(m + 1));
+// Riachuelo: piedras pequeñas en el lecho y una grande cada cinco, en las orillas
+for (let k = 0; k < 150; k++) {
+  const i = Math.floor(rnd(0, STREAM.length - 1)), t = rnd(0, 1);
+  const A = STREAM[i], B = STREAM[i + 1];
+  const len = Math.hypot(B[0] - A[0], B[1] - A[1]);
+  const nx = -(B[1] - A[1]) / len, nz = (B[0] - A[0]) / len; // perpendicular al riachuelo
+  const cx = A[0] + (B[0] - A[0]) * t, cz = A[1] + (B[1] - A[1]) * t;
+  const grande = k % 5 === 0;
+  const lado = Math.random() < 0.5 ? -1 : 1;
+  const off = grande ? lado * rnd(HW - 0.1, HW + 1.2) : rnd(-HW, HW);
+  addRock(cx + nx * off, cz + nz * off, grande ? rnd(0.35, 0.65) : rnd(0.1, 0.22), Math.floor(rnd(0, rockMats.length)));
+}
+// Alrededor de la poza y al pie de la cascada
+for (let k = 0; k < 28; k++) {
+  const a = rnd(0, Math.PI * 2), r = rnd(3.4, 4.6);
+  addRock(Math.cos(a) * r, -33.5 + Math.sin(a) * r, rnd(0.3, 0.6), Math.floor(rnd(0, rockMats.length)));
+}
+for (let k = 0; k < 8; k++) {
+  addRock(rnd(-2.2, 2.2), rnd(-35.8, -34.6), rnd(0.25, 0.5), Math.floor(rnd(0, rockMats.length)));
+}
+// Sobre la cima, en el río
+for (let k = 0; k < 12; k++) {
+  addRock(rnd(-1.5, 1.5), rnd(-40.2, -35.4), rnd(0.14, 0.32), Math.floor(rnd(0, rockMats.length)), 5.05);
+}
+rockList.forEach((lista, m) => {
+  if (!lista.length) return;
+  const im = new THREE.InstancedMesh(rockGeos[m], rockMats[m], lista.length);
+  lista.forEach((R, i) => {
+    dummy.position.set(R.x, R.y, R.z);
+    dummy.rotation.set(0, R.ry, 0);
+    dummy.scale.set(R.s, R.s * R.sq, R.s * rnd(0.8, 1.2));
+    dummy.updateMatrix();
+    im.setMatrixAt(i, dummy.matrix);
+    im.setColorAt(i, new THREE.Color().setScalar(rnd(0.8, 1.15)));
+  });
+  im.instanceMatrix.needsUpdate = true;
+  im.instanceColor.needsUpdate = true;
+  scene.add(im);
+});
 surfParts.push(new THREE.CircleGeometry(3.4, 40).rotateX(-Math.PI / 2).translate(0, 0.05, -33.5).toNonIndexed());
 scene.add(new THREE.Mesh(new THREE.RingGeometry(3.3, 3.9, 40).rotateX(-Math.PI / 2).translate(0, 0.03, -33.5), mStone));
 
@@ -1199,6 +1302,7 @@ instanceTrees(HERO_VARIANTS[2], VTREES.length, (i) => ({ x: VTREES[i][0], z: VTR
 // Animación del pueblo: las ondas corren, caen las gotas de las fuentes y las ventanas se encienden al anochecer
 function updateVillage(dt, t) {
   sheetMat.uniforms.uTime.value = t;
+  filmMat.uniforms.uTime.value = t;
   for (let i = 0; i < jets.length; i++) {
     const d = jets[i];
     d.age = (d.age + dt) % d.L;
