@@ -1114,7 +1114,7 @@ function vergeGeo(pts, y) {
         const d = BANDAS[k] * (1 + 0.18 * k / 3 * Math.sin(i * 1.7 + lado * 2 + k * 0.9));
         const x = p[0] - dz * d * lado, z = p[1] + dx * d * lado;
         pos.push(x, y, z);
-        uv.push(30 + x / 8, 30 - z / 8); // mismo mapeo que el suelo: 60 repeticiones sobre el anillo de 480 u
+        uv.push(0.5 + x / 480, 0.5 - z / 480); // mismo mapeo que el suelo (anillo de 480 u)
         const v = 0.92 + 0.16 * Math.sin(i * 2.3 + k * 4.1 + lado);
         col.push(TONOS[k][0] * v, TONOS[k][1] * v, TONOS[k][2] * v);
       }
@@ -1271,16 +1271,18 @@ function ribbon3(pts, w, uScale = 0.5) {
   g.computeVertexNormals();
   return g;
 }
-// La loma: una malla con la forma de loma y el cauce hundido
+// La loma: una malla con la forma de loma y el cauce hundido. Es de hierba, como las colinas del fondo.
+// (No lleva atributo de color, por eso no puede usar mGranito, que lee el color por vértice.)
+const mLoma = new THREE.MeshStandardMaterial({ map: texGround, color: 0xa9b27a, roughness: 1 });
 const LOMA = new THREE.PlaneGeometry(18, 27.6, 72, 110).rotateX(-Math.PI / 2).translate(0, 0, -49.2);
 const lp = LOMA.attributes.position, lu = LOMA.attributes.uv;
 for (let i = 0; i < lp.count; i++) {
   const x = lp.getX(i), z = lp.getZ(i);
   lp.setY(i, loma(x, z));
-  lu.setXY(i, x * 0.3, z * 0.3);
+  lu.setXY(i, 0.5 + x / 480, 0.5 - z / 480); // mismo mapeo que el suelo
 }
 LOMA.computeVertexNormals();
-scene.add(new THREE.Mesh(LOMA, mGranito));
+scene.add(new THREE.Mesh(LOMA, mLoma));
 // El agua del cauce, un poco por debajo de la orilla
 scene.add(new THREE.Mesh(ribbon3(riverPts.map(([x, z]) => [x, ramp(z) - 0.2, z]), 3.0, 0.5), filmMat));
 
