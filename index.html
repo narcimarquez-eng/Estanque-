@@ -928,19 +928,13 @@ function updateLeaves(dt, t) {
    ========================================================= */
 // El agua del riachuelo, la cascada y las fuentes es el mismo shader de agua que el estanque
 // (reflejos del cielo, ondas y color). Las superficies planas se juntan en una sola malla, más abajo.
-// Los chorros y caños son verticales y usan este material, con el mismo color del estanque.
 const surfParts = [];
-const mFlow = new THREE.MeshStandardMaterial({
-  color: 0x1e4f57, transparent: true, opacity: 0.82, roughness: 0.1, metalness: 0.0,
-  side: THREE.DoubleSide, depthWrite: false,
-});
 // Lecho y orillas con las mismas texturas originales del fondo del estanque y de las rocas
 const mBedS = mBed.clone();
 mBedS.side = THREE.DoubleSide;
 const mPath = new THREE.MeshStandardMaterial({ map: texRock, roughness: 0.95, side: THREE.DoubleSide });
 const mWin  = new THREE.MeshStandardMaterial({ color: 0xffe2b0, emissive: 0xffa54a, emissiveIntensity: 0.2, roughness: 0.9 });
 const mDoor = new THREE.MeshStandardMaterial({ color: 0x3b2a1d, roughness: 0.9 });
-const mFoam = new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.55, roughness: 1, depthWrite: false });
 
 // Cinta plana que sigue una línea (agua, lecho, orillas, caminos). pts = [[x, z], ...]
 function ribbon(pts, w0, w1, y, uScale = 0.4) {
@@ -985,27 +979,66 @@ surfParts.push(ribbon(STREAM, 2 * HW, 2 * HW, 0.05, 0.3).toNonIndexed());
 scene.add(new THREE.Mesh(ribbon(offsetLine(STREAM, HW + 0.14), 0.28, 0.28, 0.1, 0.5), mPath));
 scene.add(new THREE.Mesh(ribbon(offsetLine(STREAM, -(HW + 0.14)), 0.28, 0.28, 0.1, 0.5), mPath));
 
-// Cascada: pared de roca, salto de agua y estanque de recogida
+// Cascada: el agua sale del borde de la roca, cae en una lámina con hilos que bajan
+// y choca contra la base de piedra, donde salpica y hace espuma.
 const rockParts = [
-  [-3, 2.2, -38.5, 3.4, 2.4, 3.5], [3, 2.0, -38.5, 3.2, 2.2, 3.5], [0, 3.9, -38.5, 3.6, 1.2, 3.5],
-  [-6.5, 1.2, -37, 2.2, 1.2, 2.6], [6.5, 1.1, -37, 2.2, 1.1, 2.6],
+  [-3.2, 2.3, -37.5, 3.2, 2.3, 2.5], [3.2, 2.1, -37.5, 3.0, 2.1, 2.5], [0, 3.9, -37.4, 3.6, 1.3, 2.4],
+  [0, 2.0, -37.2, 2.2, 1.8, 2.3], [-6.5, 1.2, -36.5, 2.2, 1.2, 1.6], [6.5, 1.1, -36.5, 2.2, 1.1, 1.6],
 ].map(([x, y, z, sx, sy, sz]) => new THREE.SphereGeometry(1, 14, 10).toNonIndexed().scale(sx, sy, sz).translate(x, y, z));
 scene.add(new THREE.Mesh(mergeGeometries(rockParts), mRock));
-const fall = new THREE.PlaneGeometry(3.4, 3.8, 1, 4);
-fall.translate(0, 2.0, -34.92);
-scene.add(new THREE.Mesh(fall, mFlow));
+
+const SHEET_Z = -35.25, LIP_Y = 4.7, BASE_Y = 0.5;
+const sheetMat = new THREE.ShaderMaterial({
+  uniforms: {
+    uTime: { value: 0 },
+    uBase: { value: new THREE.Color(0x1e4f57) },   // el mismo color del agua del estanque
+    uLight: { value: new THREE.Color(0xdff4f8) },  // blanco azulado de la espuma y los hilos
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      vec3 p = position;
+      p.z += sin(uv.x * 22.0 + uv.y * 4.0) * 0.04 * uv.y; // la lámina ondula al caer
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+    }`,
+  fragmentShader: `
+    uniform float uTime;
+    uniform vec3 uBase;
+    uniform vec3 uLight;
+    varying vec2 vUv;
+    float hash(float n) { return fract(sin(n) * 43758.5453); }
+    void main() {
+      float col = floor(vUv.x * 40.0);
+      float n = hash(col + 1.0);
+      float sp = 0.8 + n * 1.2;
+      // hilos de agua: bandas claras que bajan a distinta velocidad
+      float ph = fract(vUv.y * (1.2 + n * 1.1) + n * 7.0 + uTime * sp * 0.6);
+      float hilo = smoothstep(0.6, 1.0, ph);
+      float borde = smoothstep(0.0, 0.08, vUv.x) * (1.0 - smoothstep(0.92, 1.0, vUv.x));
+      float arriba = 1.0 - smoothstep(0.88, 1.0, vUv.y);
+      float labio = smoothstep(0.95, 1.0, vUv.y);   // borde brillante donde sale el agua
+      float pie = 1.0 - smoothstep(0.0, 0.2, vUv.y); // espuma donde choca
+      float espuma = pie * (0.5 + 0.5 * hash(col * 3.0 + floor(uTime * 6.0)));
+      vec3 c = mix(uBase, uLight, hilo * 0.45 + espuma * 0.9 + labio * 0.6);
+      float a = borde * arriba * (0.6 + 0.3 * hilo) + borde * espuma * 0.5 + borde * labio * 0.5;
+      gl_FragColor = vec4(c, clamp(a, 0.0, 0.92));
+    }`,
+  transparent: true, depthWrite: false, side: THREE.DoubleSide,
+});
+const sheet = new THREE.PlaneGeometry(3.2, LIP_Y - BASE_Y, 30, 40);
+sheet.translate(0, (LIP_Y + BASE_Y) / 2, SHEET_Z);
+scene.add(new THREE.Mesh(sheet, sheetMat));
 surfParts.push(new THREE.CircleGeometry(3.4, 40).rotateX(-Math.PI / 2).translate(0, 0.05, -33.5).toNonIndexed());
 scene.add(new THREE.Mesh(new THREE.RingGeometry(3.3, 3.9, 40).rotateX(-Math.PI / 2).translate(0, 0.03, -33.5), mStone));
-scene.add(new THREE.Mesh(new THREE.RingGeometry(0.8, 2.6, 28).rotateX(-Math.PI / 2).translate(0, 0.09, -34.6), mFoam));
 
-// Fuentes: piletas de piedra. El agua llega por un tubo elevado y cae por un caño sobre la pileta.
+// Fuentes: piletas de piedra. El tubo de madera llega a la columna y el agua sale por la boquilla de arriba.
 const VFOUNT = [
-  { x: -9, z: -21, y0: 1.6, yEnd: 0.45, H: 0.85, spread: 0.95, n: 70 },
-  { x: 7, z: -24, y0: 1.6, yEnd: 0.45, H: 0.95, spread: 1.05, n: 70 },
-  { x: 0, z: -34.4, y0: 0.2, yEnd: 0.1, H: 0.45, spread: 1.2, n: 40 },
+  { x: -9, z: -21, nozzleY: 1.45, basinY: 0.36 },
+  { x: 7, z: -24, nozzleY: 1.45, basinY: 0.36 },
 ];
 const stoneParts = [], discParts = [];
-for (const F of VFOUNT.slice(0, 2)) {
+for (const F of VFOUNT) {
   stoneParts.push(new THREE.LatheGeometry([
     new THREE.Vector2(0, 0.05), new THREE.Vector2(1.9, 0.05), new THREE.Vector2(1.9, 0.6),
     new THREE.Vector2(1.7, 0.62), new THREE.Vector2(1.7, 0.25), new THREE.Vector2(0, 0.25),
@@ -1047,27 +1080,45 @@ function pipe(ax, az, bx, bz, y) {
 function post(x, z, h) {
   return new THREE.BoxGeometry(0.16, h, 0.16).toNonIndexed().translate(x, h / 2, z);
 }
+// Cada tubo llega al centro de la columna de su fuente, y de ahí sube el agua hasta la boquilla.
 const PIPES = [
-  { a: [-4.1, -19.9], b: [-7.5, -21.0], y: 1.1, fountain: 0 },
-  { a: [-3.3, -25.0], b: [5.6, -24.0], y: 1.1, fountain: 1 },
+  { a: [-4.1, -19.9], b: [-9, -21], y: 1.1 },
+  { a: [-3.3, -25.0], b: [7, -24], y: 1.1 },
 ];
-const pipeParts = [], spoutParts = [];
+const pipeParts = [];
 for (const P of PIPES) {
   const [ax, az] = P.a, [bx, bz] = P.b;
   pipeParts.push(pipe(ax, az, bx, bz, P.y));
   pipeParts.push(post(ax, az, P.y), post((ax + bx) / 2, (az + bz) / 2, P.y));
-  // caño: cae desde el extremo del tubo dentro de la pileta
-  spoutParts.push(new THREE.CylinderGeometry(0.07, 0.07, 0.6, 8, 1).toNonIndexed().translate(bx, 0.7, bz));
 }
 scene.add(new THREE.Mesh(mergeGeometries(pipeParts), mWood));
-scene.add(new THREE.Mesh(mergeGeometries(spoutParts), mFlow));
 
-// Gotas de los chorros (un único Points para todas las fuentes)
-const dropData = [];
-VFOUNT.forEach((F, f) => {
-  for (let i = 0; i < F.n; i++) dropData.push({ f, ph: Math.random(), ang: rnd(0, Math.PI * 2), spd: rnd(0.4, 0.65) });
-});
-const dropPos = new Float32Array(dropData.length * 3);
+// Chorros, gotas y salpicaduras: cada gota sigue una trayectoria de proyectil, con gravedad.
+// Salen de la boquilla de cada fuente y caen a la pileta. En la cascada, el agua cae por el borde
+// de la roca y salpica al chocar con la base. Cada gota dura lo que tarda en tocar el agua.
+const G_ACC = 9.8;
+const jets = [];
+const addDrop = (ox, oy, oz, vx, vy, vz, sueloY) => {
+  const L = (vy + Math.sqrt(vy * vy + 2 * G_ACC * (oy - sueloY))) / G_ACC; // tiempo hasta caer al agua
+  jets.push({ ox, oy, oz, vx, vy, vz, L, age: Math.random() * L });
+};
+for (const F of VFOUNT) {
+  for (let i = 0; i < 90; i++) {  // chorros en arco, que se abren desde la boquilla
+    const a = rnd(0, Math.PI * 2), sp = rnd(0.35, 1.2);
+    addDrop(F.x, F.nozzleY, F.z, Math.cos(a) * sp, rnd(2.4, 3.1), Math.sin(a) * sp, F.basinY);
+  }
+  for (let i = 0; i < 40; i++) {  // hilo central, casi vertical
+    const a = rnd(0, Math.PI * 2), sp = rnd(0.04, 0.18);
+    addDrop(F.x, F.nozzleY, F.z, Math.cos(a) * sp, rnd(2.9, 3.4), Math.sin(a) * sp, F.basinY);
+  }
+}
+for (let i = 0; i < 120; i++) { // agua que cae por el borde de la roca
+  addDrop(rnd(-1.5, 1.5), LIP_Y, SHEET_Z - 0.05, 0, 0, 0, 0.05);
+}
+for (let i = 0; i < 110; i++) { // salpicaduras al chocar con la base
+  addDrop(rnd(-1.4, 1.4), rnd(0.5, 0.9), SHEET_Z + rnd(-0.1, 0.25), rnd(-0.6, 0.6), rnd(1.2, 2.6), rnd(0.5, 1.6), 0.05);
+}
+const dropPos = new Float32Array(jets.length * 3);
 const dropGeo = new THREE.BufferGeometry();
 dropGeo.setAttribute('position', new THREE.BufferAttribute(dropPos, 3));
 // Gotas redondas: una textura con un círculo suave (sin cuadrados)
@@ -1147,13 +1198,13 @@ instanceTrees(HERO_VARIANTS[2], VTREES.length, (i) => ({ x: VTREES[i][0], z: VTR
 
 // Animación del pueblo: las ondas corren, caen las gotas de las fuentes y las ventanas se encienden al anochecer
 function updateVillage(dt, t) {
-  for (let i = 0; i < dropData.length; i++) {
-    const d = dropData[i], F = VFOUNT[d.f];
-    d.ph = (d.ph + dt * d.spd) % 1;
-    const p = d.ph;
-    dropPos[i * 3] = F.x + Math.cos(d.ang) * F.spread * p;
-    dropPos[i * 3 + 1] = F.y0 + (F.yEnd - F.y0) * p + F.H * 4 * p * (1 - p);
-    dropPos[i * 3 + 2] = F.z + Math.sin(d.ang) * F.spread * p;
+  sheetMat.uniforms.uTime.value = t;
+  for (let i = 0; i < jets.length; i++) {
+    const d = jets[i];
+    d.age = (d.age + dt) % d.L;
+    dropPos[i * 3] = d.ox + d.vx * d.age;
+    dropPos[i * 3 + 1] = d.oy + d.vy * d.age - 0.5 * G_ACC * d.age * d.age;
+    dropPos[i * 3 + 2] = d.oz + d.vz * d.age;
   }
   dropGeo.attributes.position.needsUpdate = true;
   const night = THREE.MathUtils.clamp((6 - sun.position.y) / 8, 0, 1);
