@@ -712,13 +712,24 @@ function grassClump() {
   }
   return mergeGeometries(parts);
 }
+// Zonas del pueblo donde no crecen hierba, hojas ni arbustos, para que se vean el riachuelo, las plazas y las casas.
+// Las posiciones de las casas son las mismas que en HOUSES (más abajo).
+const VILLAGE_HOUSE_XZ = [[-17, -13], [-21, -20], [-16, -27], [-22, -30], [-9, -31], [-12, -15.5], [13, -14], [19, -20], [15, -31], [22, -28], [6, -33]];
+const villageFree = (x, z) =>
+  (z < -3 && x > -4.8 && x < 2) ||                                   // riachuelo y su orilla
+  Math.hypot(x + 9, z + 21) < 5.2 || Math.hypot(x - 7, z + 24) < 3.6 || // plazas de las fuentes
+  VILLAGE_HOUSE_XZ.some(([hx, hz]) => Math.hypot(x - hx, z - hz) < 3.2); // casas
+
 const CLUMPS = LOW ? 900 : 2000;
 const grass = new THREE.InstancedMesh(grassClump(), mBlade, CLUMPS);
 const grassCols = [0x7a9a3c, 0x9ab84e, 0x6a8a34, 0xa8a040, 0x8a8a3a];
 for (let i = 0; i < CLUMPS; i++) {
-  const a = rnd(0, Math.PI * 2);
-  const r = Math.sqrt(rnd(5.2 * 5.2, 16 * 16));
-  dummy.position.set(Math.cos(a) * r, 0, Math.sin(a) * r);
+  let x, z;
+  do { // hierba fuera de las zonas del pueblo
+    const a = rnd(0, Math.PI * 2), r = Math.sqrt(rnd(5.2 * 5.2, 16 * 16));
+    x = Math.cos(a) * r; z = Math.sin(a) * r;
+  } while (villageFree(x, z));
+  dummy.position.set(x, 0, z);
   dummy.rotation.set(0, rnd(0, Math.PI * 2), 0);
   dummy.scale.set(rnd(0.8, 1.4), rnd(0.8, 1.5), rnd(0.8, 1.4));
   dummy.updateMatrix();
@@ -738,8 +749,12 @@ const tmp = new THREE.Object3D();
 tmp.rotation.order = 'YXZ';                // primero tumbada, luego girada sobre el suelo
 const fallCols = [0xd9552b, 0xe8a33d, 0xb8402a, 0x9a5a20, 0xc9832a];
 for (let i = 0; i < FALLEN; i++) {
-  const a = rnd(0, Math.PI * 2), r = Math.sqrt(rnd(5.3 * 5.3, 13 * 13));
-  tmp.position.set(Math.cos(a) * r, 0.05, Math.sin(a) * r);
+  let x, z;
+  do { // hojas fuera de las zonas del pueblo (que no floten sobre el riachuelo)
+    const a = rnd(0, Math.PI * 2), r = Math.sqrt(rnd(5.3 * 5.3, 13 * 13));
+    x = Math.cos(a) * r; z = Math.sin(a) * r;
+  } while (villageFree(x, z));
+  tmp.position.set(x, 0.05, z);
   tmp.rotation.set(-Math.PI / 2 + rnd(-0.12, 0.12), rnd(0, Math.PI * 2), rnd(-0.1, 0.1));
   tmp.scale.setScalar(rnd(0.18, 0.3));
   tmp.updateMatrix();
@@ -804,7 +819,8 @@ const shrubPlace = () => {
     const a = rnd(0, Math.PI * 2), r = rnd(6, 11);
     x = Math.cos(a) * r;
     z = Math.sin(a) * r;
-    if (Math.hypot(x - 7.5, z + 2.5) > 4.5 &&       // casa de té
+    if (!villageFree(x, z) &&                       // fuera del riachuelo y del pueblo
+        Math.hypot(x - 7.5, z + 2.5) > 4.5 &&       // casa de té
         Math.hypot(x - 5.4, z - 2.2) > 1.5 &&       // farol 1
         Math.hypot(x + 5.3, z + 1.5) > 1.5) break;  // farol 2
   }
@@ -1005,8 +1021,8 @@ surfParts.push(...discParts);
 // Una sola malla con el agua de la aldea: riachuelo, poza de la cascada y piletas.
 // Usa el mismo shader y las mismas ondas que el estanque; cada malla de este tipo dibuja su reflejo.
 const waterV = new Water(mergeGeometries(surfParts), {
-  textureWidth: LOW ? 128 : 256,
-  textureHeight: LOW ? 128 : 256,
+  textureWidth: LOW ? 256 : 512,
+  textureHeight: LOW ? 256 : 512,
   waterNormals: texNormal,
   sunDirection: new THREE.Vector3(0, 1, 0),
   sunColor: 0xffffff,
@@ -1054,8 +1070,19 @@ VFOUNT.forEach((F, f) => {
 const dropPos = new Float32Array(dropData.length * 3);
 const dropGeo = new THREE.BufferGeometry();
 dropGeo.setAttribute('position', new THREE.BufferAttribute(dropPos, 3));
+// Gotas redondas: una textura con un círculo suave (sin cuadrados)
+const dropCanvas = document.createElement('canvas');
+dropCanvas.width = dropCanvas.height = 32;
+const dg = dropCanvas.getContext('2d');
+const dgr = dg.createRadialGradient(16, 16, 0, 16, 16, 16);
+dgr.addColorStop(0, 'rgba(255,255,255,1)');
+dgr.addColorStop(0.55, 'rgba(255,255,255,0.9)');
+dgr.addColorStop(1, 'rgba(255,255,255,0)');
+dg.fillStyle = dgr;
+dg.fillRect(0, 0, 32, 32);
 const drops = new THREE.Points(dropGeo, new THREE.PointsMaterial({
-  color: 0xf2faff, size: 0.12, transparent: true, opacity: 0.9, depthWrite: false,
+  color: 0xf2faff, map: new THREE.CanvasTexture(dropCanvas), size: 0.14,
+  transparent: true, opacity: 0.9, depthWrite: false,
 }));
 drops.frustumCulled = false;
 scene.add(drops);
@@ -1211,9 +1238,10 @@ function updateMovement(dt) {
   if (keys.ShiftLeft || keys.ShiftRight) vy -= 1;
   camPos.y = THREE.MathUtils.clamp(camPos.y + vy * sp, 0.6, 12);
 
-  // No entrar en el agua: el radio se mantiene entre 5.2 y 20.
+  // No entrar en el agua: el radio se mantiene entre 5.2 y 20, y hasta 40 dentro del pueblo (al norte).
   const r = Math.hypot(camPos.x, camPos.z) || 0.001;
-  const rc = THREE.MathUtils.clamp(r, 5.2, 20);
+  const enPueblo = camPos.z < -11 && Math.abs(camPos.x) < 28;
+  const rc = THREE.MathUtils.clamp(r, 5.2, enPueblo ? 40 : 20);
   camPos.x *= rc / r;
   camPos.z *= rc / r;
 

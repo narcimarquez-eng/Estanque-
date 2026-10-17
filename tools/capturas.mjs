@@ -112,7 +112,7 @@ try {
     let body = await r.text();
     body = body
       .replace('if (camPos.y < 5.5) {', 'if (camPos.y < 5.5 && !(window.__dbg && window.__dbg.noSolids)) {')
-      .replace('const rc = THREE.MathUtils.clamp(r, 5.2, 20);', 'const rc = (window.__dbg && window.__dbg.noSolids) ? r : THREE.MathUtils.clamp(r, 5.2, 20);')
+      .replace('const rc = THREE.MathUtils.clamp(r, 5.2, enPueblo ? 40 : 20);', 'const rc = (window.__dbg && window.__dbg.noSolids) ? r : THREE.MathUtils.clamp(r, 5.2, enPueblo ? 40 : 20);')
       .replace(/<\/script>\s*<\/body>/, GANCHO + '\n</script>\n</body>');
     await route.fulfill({ response: r, body });
   });
