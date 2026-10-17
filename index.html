@@ -1094,9 +1094,9 @@ const loma = (x, z) => {
   if (z > -35.4) return 0;
   const d = dRiver(x, z);
   const lomaW = 1 - THREE.MathUtils.smoothstep(d, 4.2, 9);
-  const cauce = THREE.MathUtils.smoothstep(d, 0.7, 1.9);
+  const cauce = THREE.MathUtils.smoothstep(d, 1.0, 2.2);
   const relieve = 0.2 * Math.sin(x * 1.7 + z * 0.9) * Math.cos(z * 1.3);
-  return lomaW * (ramp(z) - 0.4 * (1 - cauce) + relieve * cauce);
+  return lomaW * (ramp(z) - 0.6 * (1 - cauce) + relieve * cauce);
 };
 // Cinta con altura por punto (para el agua del cauce, que baja por la loma)
 function ribbon3(pts, w, uScale = 0.5) {
@@ -1131,7 +1131,7 @@ for (let i = 0; i < lp.count; i++) {
 LOMA.computeVertexNormals();
 scene.add(new THREE.Mesh(LOMA, mGranito));
 // El agua del cauce, un poco por debajo de la orilla
-scene.add(new THREE.Mesh(ribbon3(riverPts.map(([x, z]) => [x, ramp(z) - 0.2, z]), 2.4, 0.5), filmMat));
+scene.add(new THREE.Mesh(ribbon3(riverPts.map(([x, z]) => [x, ramp(z) - 0.2, z]), 3.0, 0.5), filmMat));
 
 // Piedras del lecho: de distintos tipos y tamaños, en el riachuelo, alrededor de la poza y sobre la cima
 const rockMats = [mCanto, mMusgo, mCaliza, mGranito];
@@ -1173,10 +1173,10 @@ for (let k = 0; k < 8; k++) {
   addRock(rnd(-2.2, 2.2), rnd(-35.8, -34.6), rnd(0.25, 0.5), Math.floor(rnd(0, rockMats.length)));
 }
 // Piedras del cauce (dentro del agua y en las orillas) y sueltas por la loma
-for (let k = 0; k < 110; k++) {
+for (let k = 0; k < 170; k++) {
   const p = riverPts[Math.floor(rnd(0, riverPts.length))];
   const x = p[0] + rnd(-2.6, 2.6), z = p[1] + rnd(-0.6, 0.6);
-  const dentro = Math.abs(x - p[0]) < 1.0;
+  const dentro = Math.abs(x - p[0]) < 1.4;
   addRock(x, z, dentro ? rnd(0.12, 0.25) : rnd(0.3, 0.7), Math.floor(rnd(0, rockMats.length)), loma(x, z) - 0.1);
 }
 for (let k = 0; k < 50; k++) {
