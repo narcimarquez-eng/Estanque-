@@ -121,7 +121,7 @@ try {
 
   const POSES = [
     ['cerca-1-estanque', 'estanque de cerca, referencia', [0.8, 1.0, 7.5], [0, 0.0, 0]],
-    ['cerca-2-riachuelo', 'riachuelo de cerca', [-6.5, 1.3, -10], [-2.4, 0, -16]],
+    ['cerca-2-riachuelo', 'riachuelo de cerca, desde el norte de la valla', [-2.0, 1.5, -20], [-2.6, 0, -15]],
     ['cerca-3-cascada', 'poza de la cascada y fuentes', [0, 2.0, -24], [0, 0.8, -33]],
     ['cerca-4-fuente-oeste', 'fuente del oeste de cerca', [-9, 1.8, -16], [-9, 0.8, -21]],
     ['cerca-5-fuente-este', 'fuente del este de cerca', [7, 1.8, -18], [7, 0.8, -24]],
