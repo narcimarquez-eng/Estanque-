@@ -693,7 +693,7 @@ function instanceTrees(variant, count, place, shadow = false, solidR = 0) {
   for (let i = 0; i < count; i++) {
     const t = place(i);
     if (solidR) SOLIDS.push({ x: t.x, z: t.z, r: solidR * t.s });
-    dummy.position.set(t.x, 0, t.z);
+    dummy.position.set(t.x, t.y || 0, t.z);
     dummy.rotation.set(0, rnd(0, Math.PI * 2), 0);
     dummy.scale.setScalar(t.s);
     dummy.updateMatrix();
@@ -1223,7 +1223,7 @@ const filmMat = new THREE.ShaderMaterial({
 });
 // Río que llega a la cascada: baja desde el norte por un cauce de piedra, sobre una loma rocosa,
 // y cae por el borde. Usa la misma corriente con hilos blancos que la lámina de la cascada.
-const RIVER = [[-7.5, -63], [-6, -57], [-4.2, -51], [-2.8, -45], [-1.5, -40], [-0.5, -36], [0, -35.3]];
+const RIVER = [[-10.5, -100], [-9.5, -90], [-8.6, -80], [-8, -71], [-7.5, -63], [-6, -57], [-4.2, -51], [-2.8, -45], [-1.5, -40], [-0.5, -36], [0, -35.3]];
 const riverPts = [];
 for (let i = 0; i < RIVER.length - 1; i++) {
   for (let s = 0; s < 6; s++) {
@@ -1232,23 +1232,40 @@ for (let i = 0; i < RIVER.length - 1; i++) {
   }
 }
 riverPts.push(RIVER[RIVER.length - 1]);
-// Altura del cauce: sube hacia el norte, desde la altura de la cima de la roca
-const ramp = (z) => 5.0 + Math.max(0, -35.3 - z) * 0.25;
+// Borde sur de la montaña: la cascada cae desde aquí
+const CUMBRE_Z = -35.4;
+// Altura de la cresta del río: sube hacia el norte desde el borde de la cascada
+const ramp = (z) => 4.8 + Math.max(0, CUMBRE_Z - z) * 0.22;
 // Distancia de un punto al cauce
 const dRiver = (x, z) => {
   let m = 1e9;
   for (const p of riverPts) m = Math.min(m, Math.hypot(x - p[0], z - p[1]));
   return m;
 };
-// Altura de la loma: el cauce queda hundido en el centro y la loma baja hacia los lados
+// Semianchura de la ladera: se ensancha hacia el norte
+const anchoLoma = (z) => 4 + Math.max(0, CUMBRE_Z - z) * 0.7;
+// Altura de la montaña del norte: el cauce queda hundido en el centro y la ladera baja hacia los lados.
+// Al sur acaba en el borde de la cascada, y al norte se apaga antes del horizonte.
 const loma = (x, z) => {
-  if (z > -35.4) return 0;
+  if (z > CUMBRE_Z) return 0;
   const d = dRiver(x, z);
-  const lomaW = 1 - THREE.MathUtils.smoothstep(d, 4.2, 9);
+  const W = anchoLoma(z);
+  const laderaW = 1 - THREE.MathUtils.smoothstep(d, W * 0.45, W);
   const cauce = THREE.MathUtils.smoothstep(d, 1.0, 2.2);
-  const relieve = 0.2 * Math.sin(x * 1.7 + z * 0.9) * Math.cos(z * 1.3);
-  return lomaW * (ramp(z) - 0.6 * (1 - cauce) + relieve * cauce);
+  const ondas = 0.5 * Math.sin(x * 0.31 + z * 0.17) + 0.35 * Math.cos(x * 0.13 - z * 0.29 + 1.1);
+  const fin = 1 - THREE.MathUtils.smoothstep(-z, 105, 125);
+  return Math.max(0, fin * laderaW * (ramp(z) - 0.6 * (1 - cauce) + ondas * cauce));
 };
+// Un punto de la ladera del norte, lejos del cauce y de la cascada (para rocas, hierba y árboles)
+function puntoEnMonte() {
+  let p = null;
+  for (let tries = 0; tries < 30; tries++) {
+    const z = rnd(-120, CUMBRE_Z - 6), x = rnd(-anchoLoma(z), anchoLoma(z));
+    p = { x, y: loma(x, z), z };
+    if (p.y > 0.5 && dRiver(x, z) > 2.5) break;
+  }
+  return p;
+}
 // Cinta con altura por punto (para el agua del cauce, que baja por la loma)
 function ribbon3(pts, w, uScale = 0.5) {
   const pos = [], uv = [], idx = [];
@@ -1271,17 +1288,26 @@ function ribbon3(pts, w, uScale = 0.5) {
   g.computeVertexNormals();
   return g;
 }
-// La loma: una malla con la forma de loma y el cauce hundido. Es de hierba, como las colinas del fondo.
-// (No lleva atributo de color, por eso no puede usar mGranito, que lee el color por vértice.)
-const mLoma = new THREE.MeshStandardMaterial({ map: texGround, color: 0xa9b27a, roughness: 1 });
-const LOMA = new THREE.PlaneGeometry(18, 27.6, 72, 110).rotateX(-Math.PI / 2).translate(0, 0, -49.2);
+// La montaña del norte: malla con la altura de loma() y color por vértice (hierba abajo, roca arriba).
+// Va con su propio material: mGranito lee el color por vértice y aquí habría salido negra.
+const LOMA = new THREE.PlaneGeometry(170, 89.6, LOW ? 68 : 136, LOW ? 50 : 100).rotateX(-Math.PI / 2).translate(0, 0, -80.2);
 const lp = LOMA.attributes.position, lu = LOMA.attributes.uv;
+const colores = new Float32Array(lp.count * 3);
+const VERDE = new THREE.Color(0xd8e0a0), ROCA = new THREE.Color(0xb8b09c);
+const c = new THREE.Color();
 for (let i = 0; i < lp.count; i++) {
-  const x = lp.getX(i), z = lp.getZ(i);
-  lp.setY(i, loma(x, z));
+  const x = lp.getX(i), z = lp.getZ(i), h = loma(x, z);
+  lp.setY(i, h - 0.03); // un pelo bajo el suelo: en el borde no parpadea con el anillo del suelo
   lu.setXY(i, 0.5 + x / 480, 0.5 - z / 480); // mismo mapeo que el suelo
+  c.copy(VERDE).lerp(ROCA, THREE.MathUtils.smoothstep(h, 7, 13));
+  colores.set([c.r, c.g, c.b], i * 3);
 }
+LOMA.setAttribute('color', new THREE.BufferAttribute(colores, 3));
 LOMA.computeVertexNormals();
+const mLoma = new THREE.MeshStandardMaterial({ map: texGround, vertexColors: true, roughness: 1 });
+const lomaMesh = new THREE.Mesh(LOMA, mLoma);
+lomaMesh.receiveShadow = true;
+scene.add(lomaMesh);
 scene.add(new THREE.Mesh(LOMA, mLoma));
 // El agua del cauce, un poco por debajo de la orilla
 scene.add(new THREE.Mesh(ribbon3(riverPts.map(([x, z]) => [x, ramp(z) - 0.2, z]), 3.0, 0.5), filmMat));
@@ -1322,9 +1348,9 @@ for (let k = 0; k < 170; k++) {
   const dentro = Math.abs(x - p[0]) < 1.4;
   addRock(x, z, dentro ? rnd(0.12, 0.25) : rnd(0.3, 0.7), Math.floor(rnd(0, rockMats.length)), loma(x, z) - 0.1);
 }
-for (let k = 0; k < 50; k++) {
-  const x = rnd(-8, 8), z = rnd(-60, -38), y = loma(x, z);
-  if (y > 0.3) addRock(x, z, rnd(0.3, 0.6), Math.floor(rnd(0, rockMats.length)), y - 0.1);
+for (let k = 0; k < 140; k++) { // piedras sueltas por la ladera
+  const p = puntoEnMonte();
+  addRock(p.x, p.z, rnd(0.3, 0.6), Math.floor(rnd(0, rockMats.length)), p.y - 0.1);
 }
 rockList.forEach((lista, k) => {
   if (!lista.length) return;
@@ -1341,6 +1367,28 @@ rockList.forEach((lista, k) => {
   im.instanceColor.needsUpdate = true;
   scene.add(im);
 });
+// Hierba y árboles de la montaña del norte, sobre el terreno
+const grassMonte = new THREE.InstancedMesh(grassClump(), mBlade, LOW ? 250 : 700);
+for (let i = 0; i < grassMonte.count; i++) {
+  const p = puntoEnMonte();
+  dummy.position.set(p.x, p.y, p.z);
+  dummy.rotation.set(0, rnd(0, Math.PI * 2), 0);
+  dummy.scale.set(rnd(0.8, 1.4), rnd(0.8, 1.5), rnd(0.8, 1.4));
+  dummy.updateMatrix();
+  grassMonte.setMatrixAt(i, dummy.matrix);
+  grassMonte.setColorAt(i, new THREE.Color(grassCols[i % grassCols.length]));
+}
+grassMonte.instanceMatrix.needsUpdate = true;
+grassMonte.instanceColor.needsUpdate = true;
+grassMonte.frustumCulled = false;
+grassMonte.receiveShadow = true;
+scene.add(grassMonte);
+for (const variante of FOREST_VARIANTS) {
+  instanceTrees(variante, Math.round((LOW ? 30 : 70) / FOREST_VARIANTS.length), () => {
+    const p = puntoEnMonte();
+    return { x: p.x, y: p.y, z: p.z, s: rnd(1.2, 1.9) };
+  }, false, 1.4);
+}
 surfParts.push(new THREE.CircleGeometry(3.4, 40).rotateX(-Math.PI / 2).translate(0, 0.05, -33.5).toNonIndexed());
 scene.add(new THREE.Mesh(new THREE.RingGeometry(3.3, 3.9, 40).rotateX(-Math.PI / 2).translate(0, 0.03, -33.5), mStone));
 
