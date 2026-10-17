@@ -1103,11 +1103,11 @@ const addDrop = (ox, oy, oz, vx, vy, vz, sueloY) => {
   jets.push({ ox, oy, oz, vx, vy, vz, L, age: Math.random() * L });
 };
 for (const F of VFOUNT) {
-  for (let i = 0; i < 90; i++) {  // chorros en arco, que se abren desde la boquilla
+  for (let i = 0; i < 180; i++) {  // chorros en arco, que se abren desde la boquilla
     const a = rnd(0, Math.PI * 2), sp = rnd(0.35, 1.2);
     addDrop(F.x, F.nozzleY, F.z, Math.cos(a) * sp, rnd(2.4, 3.1), Math.sin(a) * sp, F.basinY);
   }
-  for (let i = 0; i < 40; i++) {  // hilo central, casi vertical
+  for (let i = 0; i < 70; i++) {  // hilo central, casi vertical
     const a = rnd(0, Math.PI * 2), sp = rnd(0.04, 0.18);
     addDrop(F.x, F.nozzleY, F.z, Math.cos(a) * sp, rnd(2.9, 3.4), Math.sin(a) * sp, F.basinY);
   }
@@ -1132,7 +1132,7 @@ dgr.addColorStop(1, 'rgba(255,255,255,0)');
 dg.fillStyle = dgr;
 dg.fillRect(0, 0, 32, 32);
 const drops = new THREE.Points(dropGeo, new THREE.PointsMaterial({
-  color: 0xf2faff, map: new THREE.CanvasTexture(dropCanvas), size: 0.09,
+  color: 0xf2faff, map: new THREE.CanvasTexture(dropCanvas), size: 0.1,
   transparent: true, opacity: 0.9, depthWrite: false,
 }));
 drops.frustumCulled = false;
