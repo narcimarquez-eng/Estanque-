@@ -982,8 +982,8 @@ scene.add(new THREE.Mesh(ribbon(offsetLine(STREAM, -(HW + 0.14)), 0.28, 0.28, 0.
 // Cascada: el agua sale del borde de la roca, cae en una lámina con hilos que bajan
 // y choca contra la base de piedra, donde salpica y hace espuma.
 const rockParts = [
-  [-3.2, 2.3, -37.5, 3.2, 2.3, 2.5], [3.2, 2.1, -37.5, 3.0, 2.1, 2.5], [0, 3.9, -37.4, 3.6, 1.3, 2.4],
-  [0, 2.0, -37.2, 2.2, 1.8, 2.3], [-6.5, 1.2, -36.5, 2.2, 1.2, 1.6], [6.5, 1.1, -36.5, 2.2, 1.1, 1.6],
+  [-3.2, 2.3, -37.9, 3.2, 2.3, 2.5], [3.2, 2.1, -37.9, 3.0, 2.1, 2.5], [0, 3.9, -37.8, 3.6, 1.3, 2.4],
+  [0, 2.0, -37.6, 2.2, 1.8, 2.2], [-6.5, 1.2, -36.5, 2.2, 1.2, 1.6], [6.5, 1.1, -36.5, 2.2, 1.1, 1.6],
 ].map(([x, y, z, sx, sy, sz]) => new THREE.SphereGeometry(1, 14, 10).toNonIndexed().scale(sx, sy, sz).translate(x, y, z));
 scene.add(new THREE.Mesh(mergeGeometries(rockParts), mRock));
 
@@ -1132,7 +1132,7 @@ dgr.addColorStop(1, 'rgba(255,255,255,0)');
 dg.fillStyle = dgr;
 dg.fillRect(0, 0, 32, 32);
 const drops = new THREE.Points(dropGeo, new THREE.PointsMaterial({
-  color: 0xf2faff, map: new THREE.CanvasTexture(dropCanvas), size: 0.14,
+  color: 0xf2faff, map: new THREE.CanvasTexture(dropCanvas), size: 0.09,
   transparent: true, opacity: 0.9, depthWrite: false,
 }));
 drops.frustumCulled = false;
